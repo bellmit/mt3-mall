@@ -9,11 +9,9 @@ import java.util.List;
 @NoArgsConstructor
 public class ProductPatchBatched extends ProductEvent {
     private List<PatchCommand> patchCommands;
-    private  String changeId;
 
-    public ProductPatchBatched(List<PatchCommand> patchCommands, String changeId) {
+    public ProductPatchBatched(List<PatchCommand> patchCommands) {
         super();
         this.patchCommands = patchCommands;
-        this.changeId = changeId;
     }
 }
