@@ -210,6 +210,8 @@ public class SkuApplicationService {
     @Transactional
     @SagaDistLock(keyExpression = "#p0.changeId", aggregateName = AGGREGATE_NAME)
     public void handle(InternalSkuPatchCommand event, String replyTopic) {
+        //deep copy bcz we are optimizing patch command after
+        InternalSkuPatchCommand original = CommonDomainRegistry.getCustomObjectSerializer().nativeDeepCopy(event);
         List<PatchCommand> commands = event.getSkuCommands();
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
         try {
@@ -227,7 +229,7 @@ public class SkuApplicationService {
             });
         } catch (UpdateQueryBuilder.PatchCommandExpectNotMatchException ex) {
             log.debug("unable to update sku due to expect not match ", ex);
-            notifyAdmin(event);
+            notifyAdmin(original);
             throw ex;
         }
     }
@@ -235,6 +237,8 @@ public class SkuApplicationService {
     @SubscribeForEvent
     @SagaDistLock(keyExpression = "#p0.changeId", aggregateName = AGGREGATE_NAME)
     public void handleCancel(InternalSkuPatchCommand event, String replyTopic) {
+        //deep copy bcz we are optimizing patch command after
+        InternalSkuPatchCommand original = CommonDomainRegistry.getCustomObjectSerializer().nativeDeepCopy(event);
         log.debug("start of handle cancel for {}", event.getChangeId());
         List<PatchCommand> commands = PatchCommand.buildRollbackCommand(event.getSkuCommands());
         List<PatchCommand> patchCommands = List.copyOf(CommonDomainRegistry.getCustomObjectSerializer().deepCopyCollection(commands, PatchCommand.class));
@@ -255,7 +259,7 @@ public class SkuApplicationService {
             });
         } catch (UpdateQueryBuilder.PatchCommandExpectNotMatchException ex) {
             log.debug("unable to update sku due to expect not match ", ex);
-            notifyAdmin(event);
+            notifyAdmin(original);
             throw ex;
         }
 
