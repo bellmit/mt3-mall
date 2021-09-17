@@ -113,4 +113,36 @@ public class DomainEventSubscriber {
                     MQHelper.replyCancelOf(AppConstant.DECREASE_ORDER_STORAGE_FOR_RESERVE_EVENT));
         } );
     }
+    @EventListener(ApplicationReadyEvent.class)
+    private void listener10() {
+        CommonDomainRegistry.getEventStreamService().of(sagaName, false, AppConstant.INCREASE_ACTUAL_STORAGE_FOR_INVALID_EVENT, (event) -> {
+            InternalSkuPatchCommand deserialize = CommonDomainRegistry.getCustomObjectSerializer().deserialize(event.getEventBody(), InternalSkuPatchCommand.class);
+            ApplicationServiceRegistry.getSkuApplicationService().handle(deserialize,
+                    MQHelper.replyOf(AppConstant.INCREASE_ACTUAL_STORAGE_FOR_INVALID_EVENT));
+        });
+    }
+    @EventListener(ApplicationReadyEvent.class)
+    private void listener11() {
+        CommonDomainRegistry.getEventStreamService().of(sagaName, false, AppConstant.INCREASE_ORDER_STORAGE_FOR_INVALID_EVENT, (event) -> {
+            InternalSkuPatchCommand deserialize = CommonDomainRegistry.getCustomObjectSerializer().deserialize(event.getEventBody(), InternalSkuPatchCommand.class);
+            ApplicationServiceRegistry.getSkuApplicationService().handle(deserialize,
+                    MQHelper.replyOf(AppConstant.INCREASE_ORDER_STORAGE_FOR_INVALID_EVENT));
+        });
+    }
+    @EventListener(ApplicationReadyEvent.class)
+    private void listener12() {
+        CommonDomainRegistry.getEventStreamService().cancelOf(sagaName, false, AppConstant.INCREASE_ACTUAL_STORAGE_FOR_INVALID_EVENT, (event) -> {
+            InternalSkuPatchCommand deserialize = CommonDomainRegistry.getCustomObjectSerializer().deserialize(event.getEventBody(), InternalSkuPatchCommand.class);
+            ApplicationServiceRegistry.getSkuApplicationService().handleCancel(deserialize,
+                    MQHelper.replyCancelOf(AppConstant.INCREASE_ACTUAL_STORAGE_FOR_INVALID_EVENT));
+        });
+    }
+    @EventListener(ApplicationReadyEvent.class)
+    private void listener13() {
+        CommonDomainRegistry.getEventStreamService().cancelOf(sagaName, false, AppConstant.INCREASE_ORDER_STORAGE_FOR_INVALID_EVENT, (event) -> {
+            InternalSkuPatchCommand deserialize = CommonDomainRegistry.getCustomObjectSerializer().deserialize(event.getEventBody(), InternalSkuPatchCommand.class);
+            ApplicationServiceRegistry.getSkuApplicationService().handleCancel(deserialize,
+                    MQHelper.replyCancelOf(AppConstant.INCREASE_ORDER_STORAGE_FOR_INVALID_EVENT));
+        } );
+    }
 }
