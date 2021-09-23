@@ -21,14 +21,6 @@ import java.util.stream.IntStream;
 @Repository
 public interface SpringDataJpaFilterRepository extends FilterRepository, JpaRepository<Filter, Long> {
 
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id = ?1")
-    void softDelete(Long id);
-
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id in ?1")
-    void softDeleteAll(Set<Long> id);
-
     default Optional<Filter> filterOfId(FilterId filterId) {
         return getFilterOfId(filterId);
     }
@@ -42,12 +34,16 @@ public interface SpringDataJpaFilterRepository extends FilterRepository, JpaRepo
         save(client);
     }
 
-    default void remove(Filter client) {
-        softDelete(client.getId());
+    default void remove(Filter filter) {
+        filter.setDeleted(true);
+        save(filter);
     }
 
     default void remove(Set<Filter> filters) {
-        softDeleteAll(filters.stream().map(Filter::getId).collect(Collectors.toSet()));
+        filters.forEach(e->{
+            e.setDeleted(true);
+        });
+        saveAll(filters);
     }
 
     default SumPagedRep<Filter> filtersOfQuery(FilterQuery query) {

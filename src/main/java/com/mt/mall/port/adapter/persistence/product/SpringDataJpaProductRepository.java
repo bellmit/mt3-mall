@@ -30,14 +30,6 @@ import static com.mt.mall.application.product.representation.ProductRepresentati
 
 public interface SpringDataJpaProductRepository extends ProductRepository, JpaRepository<Product, Long> {
 
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id = ?1")
-    void softDelete(Long id);
-
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id in ?1")
-    void softDeleteAll(Set<Long> id);
-
     default Optional<Product> productOfId(ProductId productId) {
         return getProductOfId(productId, false);
     }
@@ -58,12 +50,16 @@ public interface SpringDataJpaProductRepository extends ProductRepository, JpaRe
         QueryBuilderRegistry.getProductUpdateQueryBuilder().update(commands, Product.class);
     }
 
-    default void remove(Product client) {
-        softDelete(client.getId());
+    default void remove(Product product) {
+        product.setDeleted(true);
+        save(product);
     }
 
     default void remove(Set<Product> products) {
-        softDeleteAll(products.stream().map(Product::getId).collect(Collectors.toSet()));
+        products.forEach(e->{
+            e.setDeleted(true);
+        });
+        saveAll(products);
     }
 
     default SumPagedRep<Product> productsOfQuery(ProductQuery query) {

@@ -28,14 +28,6 @@ import static com.mt.common.CommonConstant.*;
 
 public interface SpringDataJpaSkuRepository extends SkuRepository, JpaRepository<Sku, Long> {
 
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id = ?1")
-    void softDelete(Long id);
-
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id in ?1")
-    void softDeleteAll(Set<Long> id);
-
     default Optional<Sku> skuOfId(SkuId skuOfId) {
         return skusOfQuery(new SkuQuery(skuOfId)).findFirst();
     }
@@ -44,12 +36,16 @@ public interface SpringDataJpaSkuRepository extends SkuRepository, JpaRepository
         save(client);
     }
 
-    default void remove(Sku client) {
-        softDelete(client.getId());
+    default void remove(Sku sku) {
+        sku.setDeleted(true);
+        save(sku);
     }
 
-    default void remove(Set<Sku> client) {
-        softDeleteAll(client.stream().map(Sku::getId).collect(Collectors.toSet()));
+    default void remove(Set<Sku> skus) {
+        skus.forEach(e->{
+            e.setDeleted(true);
+        });
+        saveAll(skus);
     }
 
     default void patchBatch(List<PatchCommand> commands) {

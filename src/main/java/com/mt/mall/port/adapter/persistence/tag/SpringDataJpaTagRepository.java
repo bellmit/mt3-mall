@@ -17,14 +17,6 @@ import java.util.stream.Collectors;
 
 public interface SpringDataJpaTagRepository extends TagRepository, JpaRepository<Tag, Long> {
 
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id = ?1")
-    void softDelete(Long id);
-
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id in ?1")
-    void softDeleteAll(Set<Long> id);
-
     default Optional<Tag> tagOfId(TagId tagOfId) {
         return getTagOfId(tagOfId);
     }
@@ -37,12 +29,16 @@ public interface SpringDataJpaTagRepository extends TagRepository, JpaRepository
         save(client);
     }
 
-    default void remove(Tag client) {
-        softDelete(client.getId());
+    default void remove(Tag tag) {
+        tag.setDeleted(true);
+        save(tag);
     }
 
-    default void remove(Set<Tag> client) {
-        softDeleteAll(client.stream().map(Tag::getId).collect(Collectors.toSet()));
+    default void remove(Set<Tag> tags) {
+        tags.forEach(e->{
+            e.setDeleted(true);
+        });
+        saveAll(tags);
     }
 
     default SumPagedRep<Tag> tagsOfQuery(TagQuery tagQuery) {

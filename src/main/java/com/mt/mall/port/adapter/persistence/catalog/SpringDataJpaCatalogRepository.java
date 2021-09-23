@@ -22,14 +22,6 @@ import java.util.stream.IntStream;
 @Repository
 public interface SpringDataJpaCatalogRepository extends CatalogRepository, JpaRepository<Catalog, Long> {
 
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id = ?1")
-    void softDelete(Long id);
-
-    @Modifying
-    @Query("update #{#entityName} e set e.deleted=true where e.id in ?1")
-    void softDeleteAll(Set<Long> id);
-
     default Optional<Catalog> catalogOfId(CatalogId catalogId) {
         SumPagedRep<Catalog> execute = catalogsOfQuery(new CatalogQuery(catalogId));
         return execute.findFirst();
@@ -52,11 +44,15 @@ public interface SpringDataJpaCatalogRepository extends CatalogRepository, JpaRe
     }
 
     default void remove(Catalog client) {
-        softDelete(client.getId());
+        client.setDeleted(true);
+        save(client);
     }
 
     default void remove(Set<Catalog> client) {
-        softDeleteAll(client.stream().map(Catalog::getId).collect(Collectors.toSet()));
+        client.forEach(e->{
+            e.setDeleted(true);
+        });
+        saveAll(client);
     }
 
     @Component
