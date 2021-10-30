@@ -12,16 +12,11 @@ import java.util.stream.Collectors;
 
 @Getter
 public class SkuQuery extends QueryCriteria {
+    public static final String REFERENCE_ID = "referenceId";
+    public static final String ID = "id";
     private Set<SkuId> skuIds;
     private ProductId productId;
     private SkuSort skuSort;
-
-    public SkuQuery(String queryParam) {
-        setQueryConfig(QueryConfig.countRequired());
-        setPageConfig(PageConfig.defaultConfig());
-        updateQueryParam(queryParam);
-        setSkuSort(pageConfig);
-    }
 
     public SkuQuery(SkuId skuId) {
         this.skuIds = new HashSet<>(List.of(skuId));
@@ -38,11 +33,11 @@ public class SkuQuery extends QueryCriteria {
     }
 
     private void updateQueryParam(String queryParam) {
-        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam);
-        Optional.ofNullable(stringStringMap.get("referenceId")).ifPresent(e -> {
+        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam,REFERENCE_ID,ID);
+        Optional.ofNullable(stringStringMap.get(REFERENCE_ID)).ifPresent(e -> {
             productId = new ProductId(e);
         });
-        Optional.ofNullable(stringStringMap.get("id")).ifPresent(e -> {
+        Optional.ofNullable(stringStringMap.get(ID)).ifPresent(e -> {
             this.skuIds = Arrays.stream(e.split("\\.")).map(SkuId::new).collect(Collectors.toSet());
         });
 

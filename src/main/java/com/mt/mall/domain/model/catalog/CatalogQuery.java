@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 public class CatalogQuery extends QueryCriteria {
     private static final String TYPE_LITERAL = "type";
     private static final String PARENT_ID_LITERAL = "parentId";
+    public static final String ID = "id";
     @Setter(AccessLevel.PRIVATE)
     private Set<CatalogId> catalogIds;
     @Setter(AccessLevel.PRIVATE)
@@ -29,13 +30,7 @@ public class CatalogQuery extends QueryCriteria {
     public CatalogQuery(String query, String pageConfig, String queryConfig) {
         setPageConfig(PageConfig.limited(pageConfig, 2000));
         setQueryConfig(new QueryConfig(queryConfig));
-        updateQueryParam(QueryUtility.parseQuery(query));
-    }
-
-    public CatalogQuery(String query) {
-        setPageConfig(PageConfig.defaultConfig());
-        setQueryConfig(QueryConfig.countRequired());
-        updateQueryParam(QueryUtility.parseQuery(query));
+        updateQueryParam(query);
     }
 
     public CatalogQuery(TagId tagId) {
@@ -49,9 +44,10 @@ public class CatalogQuery extends QueryCriteria {
         setCatalogSort();
     }
 
-    private void updateQueryParam(Map<String, String> queryMap) {
-        if (queryMap.get("id") != null) {
-            String id = queryMap.get("id");
+    private void updateQueryParam(String query) {
+        Map<String, String> queryMap = QueryUtility.parseQuery(query, ID, TYPE_LITERAL, PARENT_ID_LITERAL);
+        if (queryMap.get(ID) != null) {
+            String id = queryMap.get(ID);
             setCatalogIds(Arrays.stream(id.split("\\.")).map(CatalogId::new).collect(Collectors.toSet()));
         }
         if (queryMap.get(TYPE_LITERAL) != null) {
@@ -73,7 +69,7 @@ public class CatalogQuery extends QueryCriteria {
     private void setCatalogSort() {
         if (pageConfig.getSortBy().equalsIgnoreCase("name"))
             this.catalogSort = CatalogSort.byName(pageConfig.isSortOrderAsc());
-        if (pageConfig.getSortBy().equalsIgnoreCase("id"))
+        if (pageConfig.getSortBy().equalsIgnoreCase(ID))
             this.catalogSort = CatalogSort.byCatalogId(pageConfig.isSortOrderAsc());
     }
 

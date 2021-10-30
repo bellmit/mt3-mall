@@ -13,6 +13,9 @@ import java.util.stream.Collectors;
 
 @Getter
 public class FilterQuery extends QueryCriteria {
+    public static final String ID = "id";
+    public static final String CATALOG = "catalog";
+    public static final String CATALOGS = "catalogs";
     private Set<FilterId> filterIds;
     private String catalog;
     private String catalogs;
@@ -20,13 +23,6 @@ public class FilterQuery extends QueryCriteria {
     private boolean isPublic = false;
 
     private FilterSort filterSort;
-
-    public FilterQuery(String queryParam) {
-        updateQueryParam(queryParam);
-        setPageConfig();
-        setQueryConfig(QueryConfig.countRequired());
-        setFilterSort(this.pageConfig);
-    }
 
     public FilterQuery(String queryParam, String pageParam, String skipCount, boolean isPublic) {
         this.isPublic = isPublic;
@@ -57,10 +53,10 @@ public class FilterQuery extends QueryCriteria {
     }
 
     private void updateQueryParam(String queryParam) {
-        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam);
-        this.catalog = stringStringMap.get("catalog");
-        this.catalogs = stringStringMap.get("catalogs");
-        Optional.ofNullable(stringStringMap.get("id")).ifPresent(e -> {
+        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam,ID,CATALOG,CATALOGS);
+        this.catalog = stringStringMap.get(CATALOG);
+        this.catalogs = stringStringMap.get(CATALOGS);
+        Optional.ofNullable(stringStringMap.get(ID)).ifPresent(e -> {
             this.filterIds = Arrays.stream(e.split("\\.")).map(FilterId::new).collect(Collectors.toSet());
         });
         if (isPublic) {

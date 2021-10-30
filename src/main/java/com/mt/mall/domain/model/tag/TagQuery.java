@@ -11,6 +11,9 @@ import java.util.stream.Collectors;
 
 @Getter
 public class TagQuery extends QueryCriteria {
+    public static final String NAME = "name";
+    public static final String TYPE = "type";
+    public static final String ID = "id";
     private Set<TagId> tagIds;
     private String name;
     private Type type;
@@ -25,9 +28,9 @@ public class TagQuery extends QueryCriteria {
     }
 
     private void updateQueryParam(String queryParam) {
-        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam);
-        name = stringStringMap.get("name");
-        Optional.ofNullable(stringStringMap.get("type")).ifPresent(e -> {
+        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam,NAME,TYPE,ID);
+        name = stringStringMap.get(NAME);
+        Optional.ofNullable(stringStringMap.get(TYPE)).ifPresent(e -> {
             if (e.equalsIgnoreCase(Type.GEN_ATTR.name())) {
                 type = Type.GEN_ATTR;
             }
@@ -41,19 +44,19 @@ public class TagQuery extends QueryCriteria {
                 type = Type.SALES_ATTR;
             }
         });
-        Optional.ofNullable(stringStringMap.get("id")).ifPresent(e -> {
+        Optional.ofNullable(stringStringMap.get(ID)).ifPresent(e -> {
             tagIds = Arrays.stream(e.split("\\.")).map(TagId::new).collect(Collectors.toSet());
         });
     }
 
     private void setTagSort(PageConfig pageConfig) {
-        if (pageConfig.getSortBy().equalsIgnoreCase("id")) {
+        if (pageConfig.getSortBy().equalsIgnoreCase(ID)) {
             this.tagSort = TagSort.byId(pageConfig.isSortOrderAsc());
         }
-        if (pageConfig.getSortBy().equalsIgnoreCase("name")) {
+        if (pageConfig.getSortBy().equalsIgnoreCase(NAME)) {
             this.tagSort = TagSort.byName(pageConfig.isSortOrderAsc());
         }
-        if (pageConfig.getSortBy().equalsIgnoreCase("type")) {
+        if (pageConfig.getSortBy().equalsIgnoreCase(TYPE)) {
             this.tagSort = TagSort.byType(pageConfig.isSortOrderAsc());
         }
     }
