@@ -16,6 +16,7 @@ public class ProductQuery extends QueryCriteria {
     public static final String ATTRIBUTES = "attributes";
     public static final String ID = "id";
     public static final String LOWEST_PRICE = "lowestPrice";
+    public static final String NAME = "name";
     private Set<ProductId> productIds;
     private ProductSort productSort;
     private String tagSearch;
@@ -81,7 +82,7 @@ public class ProductQuery extends QueryCriteria {
     }
 
     private void updateQueryParam(String queryParam) {
-        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam,ATTR,ATTRIBUTES,ID,LOWEST_PRICE);
+        Map<String, String> stringStringMap = QueryUtility.parseQuery(queryParam,ATTR,ATTRIBUTES,ID,LOWEST_PRICE,NAME);
         Optional.ofNullable(stringStringMap.get(ATTR)).ifPresent(e -> tagSearch = e);
         Optional.ofNullable(stringStringMap.get(ATTRIBUTES)).ifPresent(e -> tagSearch = e);
         Optional.ofNullable(stringStringMap.get(ID)).ifPresent(e -> {
@@ -89,7 +90,7 @@ public class ProductQuery extends QueryCriteria {
             this.productIds = Arrays.stream(split).map(ProductId::new).collect(Collectors.toSet());
         });
         priceSearch = stringStringMap.get(LOWEST_PRICE);
-        Optional.ofNullable(stringStringMap.get("name")).ifPresent(e -> names = Arrays.stream(e.split("\\.")).collect(Collectors.toSet()));
+        Optional.ofNullable(stringStringMap.get(NAME)).ifPresent(e -> names = Arrays.stream(e.split("\\.")).collect(Collectors.toSet()));
         if (isPublic) {
             isAvailable = true;
         }

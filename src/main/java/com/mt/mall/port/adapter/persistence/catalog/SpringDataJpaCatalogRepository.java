@@ -61,6 +61,7 @@ public interface SpringDataJpaCatalogRepository extends CatalogRepository, JpaRe
         public SumPagedRep<Catalog> execute(CatalogQuery catalogQuery) {
             QueryUtility.QueryContext<Catalog> queryContext = QueryUtility.prepareContext(Catalog.class, catalogQuery);
             Optional.ofNullable(catalogQuery.getType()).ifPresent(e -> QueryUtility.addStringEqualPredicate(catalogQuery.getType().name(), Catalog_.TYPE, queryContext));
+            Optional.ofNullable(catalogQuery.getName()).ifPresent(e -> QueryUtility.addStringLikePredicate(catalogQuery.getName(), Catalog_.NAME, queryContext));
             Optional.ofNullable(catalogQuery.getParentId()).ifPresent(e -> addParentIdPredicate(catalogQuery.getParentId().getDomainId(), Catalog_.PARENT_ID, queryContext));
             Optional.ofNullable(catalogQuery.getCatalogIds()).ifPresent(e -> QueryUtility.addDomainIdInPredicate(catalogQuery.getCatalogIds().stream().map(DomainId::getDomainId).collect(Collectors.toSet()), Catalog_.CATALOG_ID, queryContext));
             Order order = null;

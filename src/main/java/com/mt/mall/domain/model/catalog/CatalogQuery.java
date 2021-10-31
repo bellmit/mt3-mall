@@ -18,6 +18,7 @@ public class CatalogQuery extends QueryCriteria {
     private static final String TYPE_LITERAL = "type";
     private static final String PARENT_ID_LITERAL = "parentId";
     public static final String ID = "id";
+    public static final String NAME = "name";
     @Setter(AccessLevel.PRIVATE)
     private Set<CatalogId> catalogIds;
     @Setter(AccessLevel.PRIVATE)
@@ -26,6 +27,7 @@ public class CatalogQuery extends QueryCriteria {
     private Type type;
     private CatalogSort catalogSort;
     private TagId tagId;
+    private String name;
 
     public CatalogQuery(String query, String pageConfig, String queryConfig) {
         setPageConfig(PageConfig.limited(pageConfig, 2000));
@@ -45,7 +47,7 @@ public class CatalogQuery extends QueryCriteria {
     }
 
     private void updateQueryParam(String query) {
-        Map<String, String> queryMap = QueryUtility.parseQuery(query, ID, TYPE_LITERAL, PARENT_ID_LITERAL);
+        Map<String, String> queryMap = QueryUtility.parseQuery(query, ID, TYPE_LITERAL, PARENT_ID_LITERAL,NAME);
         if (queryMap.get(ID) != null) {
             String id = queryMap.get(ID);
             setCatalogIds(Arrays.stream(id.split("\\.")).map(CatalogId::new).collect(Collectors.toSet()));
@@ -63,6 +65,9 @@ public class CatalogQuery extends QueryCriteria {
         if (queryMap.get(PARENT_ID_LITERAL) != null) {
             String parentId = queryMap.get(PARENT_ID_LITERAL);
             setParentId(new CatalogId(parentId));
+        }
+        if (queryMap.get(NAME) != null) {
+            name = queryMap.get(NAME);
         }
     }
 
