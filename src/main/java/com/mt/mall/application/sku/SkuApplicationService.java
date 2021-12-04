@@ -203,7 +203,7 @@ public class SkuApplicationService {
     }
 
     private void create(List<CreateSkuCommand> createSkuCommands, String changId) {
-        createSkuCommands.forEach(command -> doCreate(command, changId, command.getSkuId()));
+        createSkuCommands.forEach(command -> doCreate(command, changId+"_"+command.getSkuId(), command.getSkuId()));
     }
 
     @SubscribeForEvent

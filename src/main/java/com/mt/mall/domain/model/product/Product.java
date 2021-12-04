@@ -100,6 +100,104 @@ public class Product extends Auditable {
     @Column
     private Integer totalSales;
 
+    public Product(ProductId productId,
+                   String name,
+                   String imageUrlSmall,
+                   Set<String> imageUrlLarge,
+                   String description,
+                   Long startAt,
+                   Long endAt,
+                   List<ProductOptionCommand> selectedOptions,
+                   Set<String> attributesKey,
+                   Set<String> attributesProd,
+                   Set<String> attributesGen,
+                   List<CreateProductCommand.CreateProductSkuAdminCommand> skus,
+                   List<ProductSalesImageCommand> attributeSaleImages
+    ) {
+        setId(CommonDomainRegistry.getUniqueIdGeneratorService().id());
+        setImageUrlSmall(imageUrlSmall);
+        setName(name);
+        setProductId(productId);
+        setDescription(description);
+        setSelectedOptions(selectedOptions);
+        setImageUrlLarge(imageUrlLarge);
+        if (attributesProd != null)
+            attributesProd.forEach(getStringConsumer(TagType.PROD));
+        if (attributesKey != null)
+            attributesKey.forEach(getStringConsumer(TagType.KEY));
+        if (attributesGen != null)
+            attributesGen.forEach(getStringConsumer(TagType.GEN));
+        setStartAt(startAt);
+        setEndAt(endAt);
+        skus.forEach(e -> {
+            if (e.getSales() == null)
+                e.setSales(0);
+            e.setAttributesSales(e.getAttributesSales());
+        });
+        skus.stream().map(CreateProductCommand.CreateProductSkuAdminCommand::getAttributesSales)
+                .flatMap(Collection::stream).collect(Collectors.toSet())
+                .forEach(getStringConsumer(TagType.SALES));
+        List<CreateSkuCommand> createSkuCommands = new ArrayList<>();
+        for (CreateProductCommand.CreateProductSkuAdminCommand skuAdminCommand : skus) {
+            CreateSkuCommand command1 = new CreateSkuCommand();
+            command1.setPrice(skuAdminCommand.getPrice());
+            command1.setReferenceId(productId);
+            command1.setStorageOrder(skuAdminCommand.getStorageOrder());
+            command1.setStorageActual(skuAdminCommand.getStorageActual());
+            command1.setSales(skuAdminCommand.getSales());
+            SkuId skuId = new SkuId();
+            command1.setSkuId(skuId);
+            createSkuCommands.add(command1);
+            getAttrSalesMap().put(String.join(",", skuAdminCommand.getAttributesSales()), skuId.getDomainId());
+        }
+        setAttributeSaleImages(attributeSaleImages);
+        setLowestPrice(findLowestPrice(skus));
+        setTotalSales(calcTotalSales(skus));
+        DomainEventPublisher.instance().publish(new ProductCreated(productId, createSkuCommands, UUID.randomUUID().toString()));
+    }
+
+    public static List<PatchCommand> convertToSkuCommands(List<PatchCommand> hasNestedEntity) {
+        Set<String> collect = hasNestedEntity.stream().map(e -> e.getPath().split("/")[1]).collect(Collectors.toSet());
+        String join = "id:" + String.join(".", collect);
+        SumPagedRep<Product> products = DomainRegistry.getProductRepository().productsOfQuery(new ProductQuery(join, null, "sc:1", false));
+        hasNestedEntity.forEach(e -> {
+            String[] split = e.getPath().split("/");
+            String id = split[1];
+            String fieldName = split[split.length - 1];
+            String attrSales = parseAttrSales(e);
+            Optional<Product> first = products.getData().stream().filter(ee -> ee.getProductId().getDomainId().equals(id)).findFirst();
+            if (first.isPresent()) {
+                String domainId = first.get().getAttrSalesMap().get(attrSales);
+                e.setPath("/" + domainId + "/" + fieldName);
+            } else {
+                throw new AggregateNotExistException();
+            }
+        });
+
+        return hasNestedEntity;
+    }
+
+    /**
+     * @param command [{"op":"add","path":"/837195323695104/skus?query=attributesSales:835604723556352-淡粉色,835604663263232-185~/100A~/XXL/storageActual","value":"1"}]
+     * @return 835604723556352:淡粉色,835604663263232:185/100A/XXL
+     */
+    private static String parseAttrSales(PatchCommand command) {
+        AtomicInteger index = new AtomicInteger();
+        String[] split1 = command.getPath().split("/");
+        String collect = Arrays.stream(split1).filter((e) -> index.getAndIncrement() > 1).collect(Collectors.joining("/"));
+        String replace = collect.replace(ADMIN_REP_SKU_LITERAL + "?" + HTTP_PARAM_QUERY + "=" + ADMIN_REP_ATTR_SALES_LITERAL + ":", "");
+        String replace1 = replace.replace("~/", "$");
+        String[] split = replace1.split("/");
+        if (split.length != 2)
+            throw new NoUpdatableFieldException();
+        String $ = split[0].replace("-", ":").replace("$", "/");
+        return Arrays.stream($.split(",")).sorted((a, b) -> {
+            long l = Long.parseLong(a.split(":")[0]);
+            long l1 = Long.parseLong(b.split(":")[0]);
+            return Long.compare(l, l1);
+        }).collect(Collectors.joining(","));
+    }
+
     private void setLowestPrice(BigDecimal lowestPrice) {
         Validator.greaterThanOrEqualTo(lowestPrice, BigDecimal.ZERO);
         lowestPrice = lowestPrice.setScale(2, RoundingMode.CEILING);
@@ -357,7 +455,7 @@ public class Product extends Auditable {
 
     private void updateStorage(UpdateProductCommand.UpdateProductAdminSkuCommand command, String changeId) {
         ArrayList<PatchCommand> patchCommands = new ArrayList<>();
-        if (command.getDecreaseOrderStorage() != null) {
+        if (command.getDecreaseOrderStorage() != null && !command.getDecreaseOrderStorage().equals(0)) {
             PatchCommand patchCommand = new PatchCommand();
             patchCommand.setOp(PATCH_OP_TYPE_DIFF);
             String query = toSkuQueryPath(command, ADMIN_REP_SKU_STORAGE_ORDER_LITERAL);
@@ -366,7 +464,7 @@ public class Product extends Auditable {
             patchCommand.setExpect(1);
             patchCommands.add(patchCommand);
         }
-        if (command.getDecreaseActualStorage() != null) {
+        if (command.getDecreaseActualStorage() != null && !command.getDecreaseActualStorage().equals(0)) {
             PatchCommand patchCommand = new PatchCommand();
             patchCommand.setOp(PATCH_OP_TYPE_DIFF);
             String query = toSkuQueryPath(command, ADMIN_REP_SKU_STORAGE_ACTUAL_LITERAL);
@@ -375,7 +473,7 @@ public class Product extends Auditable {
             patchCommand.setExpect(1);
             patchCommands.add(patchCommand);
         }
-        if (command.getIncreaseOrderStorage() != null) {
+        if (command.getIncreaseOrderStorage() != null && !command.getIncreaseOrderStorage().equals(0)) {
             PatchCommand patchCommand = new PatchCommand();
             patchCommand.setOp(PATCH_OP_TYPE_SUM);
             String query = toSkuQueryPath(command, ADMIN_REP_SKU_STORAGE_ORDER_LITERAL);
@@ -384,7 +482,7 @@ public class Product extends Auditable {
             patchCommand.setExpect(1);
             patchCommands.add(patchCommand);
         }
-        if (command.getIncreaseActualStorage() != null) {
+        if (command.getIncreaseActualStorage() != null && !command.getIncreaseActualStorage().equals(0)) {
             PatchCommand patchCommand = new PatchCommand();
             patchCommand.setOp(PATCH_OP_TYPE_SUM);
             String query = toSkuQueryPath(command, ADMIN_REP_SKU_STORAGE_ACTUAL_LITERAL);
@@ -400,62 +498,6 @@ public class Product extends Auditable {
     private String toSkuQueryPath(UpdateProductCommand.UpdateProductAdminSkuCommand command, String storageType) {
         String s = getAttrSalesMap().get(getAttrSalesKey(command.getAttributesSales()));
         return "/" + s + "/" + storageType;
-    }
-
-    public Product(ProductId productId,
-                   String name,
-                   String imageUrlSmall,
-                   Set<String> imageUrlLarge,
-                   String description,
-                   Long startAt,
-                   Long endAt,
-                   List<ProductOptionCommand> selectedOptions,
-                   Set<String> attributesKey,
-                   Set<String> attributesProd,
-                   Set<String> attributesGen,
-                   List<CreateProductCommand.CreateProductSkuAdminCommand> skus,
-                   List<ProductSalesImageCommand> attributeSaleImages
-    ) {
-        setId(CommonDomainRegistry.getUniqueIdGeneratorService().id());
-        setImageUrlSmall(imageUrlSmall);
-        setName(name);
-        setProductId(productId);
-        setDescription(description);
-        setSelectedOptions(selectedOptions);
-        setImageUrlLarge(imageUrlLarge);
-        if (attributesProd != null)
-            attributesProd.forEach(getStringConsumer(TagType.PROD));
-        if (attributesKey != null)
-            attributesKey.forEach(getStringConsumer(TagType.KEY));
-        if (attributesGen != null)
-            attributesGen.forEach(getStringConsumer(TagType.GEN));
-        setStartAt(startAt);
-        setEndAt(endAt);
-        skus.forEach(e -> {
-            if (e.getSales() == null)
-                e.setSales(0);
-            e.setAttributesSales(e.getAttributesSales());
-        });
-        skus.stream().map(CreateProductCommand.CreateProductSkuAdminCommand::getAttributesSales)
-                .flatMap(Collection::stream).collect(Collectors.toSet())
-                .forEach(getStringConsumer(TagType.SALES));
-        List<CreateSkuCommand> createSkuCommands = new ArrayList<>();
-        for (CreateProductCommand.CreateProductSkuAdminCommand skuAdminCommand : skus) {
-            CreateSkuCommand command1 = new CreateSkuCommand();
-            command1.setPrice(skuAdminCommand.getPrice());
-            command1.setReferenceId(productId);
-            command1.setStorageOrder(skuAdminCommand.getStorageOrder());
-            command1.setStorageActual(skuAdminCommand.getStorageActual());
-            command1.setSales(skuAdminCommand.getSales());
-            SkuId skuId = new SkuId();
-            command1.setSkuId(skuId);
-            createSkuCommands.add(command1);
-            getAttrSalesMap().put(String.join(",", skuAdminCommand.getAttributesSales()), skuId.getDomainId());
-        }
-        setAttributeSaleImages(attributeSaleImages);
-        setLowestPrice(findLowestPrice(skus));
-        setTotalSales(calcTotalSales(skus));
-        DomainEventPublisher.instance().publish(new ProductCreated(productId, createSkuCommands, UUID.randomUUID().toString()));
     }
 
     private void setAttributeSaleImages(List<ProductSalesImageCommand> attributeSaleImages) {
@@ -478,48 +520,6 @@ public class Product extends Auditable {
     private BigDecimal findLowestPrice2(List<UpdateProductCommand.UpdateProductAdminSkuCommand> skus) {
         UpdateProductCommand.UpdateProductAdminSkuCommand updateProductAdminSkuCommand = skus.stream().min(Comparator.comparing(UpdateProductCommand.UpdateProductAdminSkuCommand::getPrice)).orElseThrow(NoLowestPriceFoundException::new);
         return updateProductAdminSkuCommand.getPrice();
-    }
-
-    public static List<PatchCommand> convertToSkuCommands(List<PatchCommand> hasNestedEntity) {
-        Set<String> collect = hasNestedEntity.stream().map(e -> e.getPath().split("/")[1]).collect(Collectors.toSet());
-        String join = "id:" + String.join(".", collect);
-        SumPagedRep<Product> products = DomainRegistry.getProductRepository().productsOfQuery(new ProductQuery(join, null, "sc:1", false));
-        hasNestedEntity.forEach(e -> {
-            String[] split = e.getPath().split("/");
-            String id = split[1];
-            String fieldName = split[split.length - 1];
-            String attrSales = parseAttrSales(e);
-            Optional<Product> first = products.getData().stream().filter(ee -> ee.getProductId().getDomainId().equals(id)).findFirst();
-            if (first.isPresent()) {
-                String domainId = first.get().getAttrSalesMap().get(attrSales);
-                e.setPath("/" + domainId + "/" + fieldName);
-            } else {
-                throw new AggregateNotExistException();
-            }
-        });
-
-        return hasNestedEntity;
-    }
-
-    /**
-     * @param command [{"op":"add","path":"/837195323695104/skus?query=attributesSales:835604723556352-淡粉色,835604663263232-185~/100A~/XXL/storageActual","value":"1"}]
-     * @return 835604723556352:淡粉色,835604663263232:185/100A/XXL
-     */
-    private static String parseAttrSales(PatchCommand command) {
-        AtomicInteger index = new AtomicInteger();
-        String[] split1 = command.getPath().split("/");
-        String collect = Arrays.stream(split1).filter((e) -> index.getAndIncrement() > 1).collect(Collectors.joining("/"));
-        String replace = collect.replace(ADMIN_REP_SKU_LITERAL + "?" + HTTP_PARAM_QUERY + "=" + ADMIN_REP_ATTR_SALES_LITERAL + ":", "");
-        String replace1 = replace.replace("~/", "$");
-        String[] split = replace1.split("/");
-        if (split.length != 2)
-            throw new NoUpdatableFieldException();
-        String $ = split[0].replace("-", ":").replace("$", "/");
-        return Arrays.stream($.split(",")).sorted((a, b) -> {
-            long l = Long.parseLong(a.split(":")[0]);
-            long l1 = Long.parseLong(b.split(":")[0]);
-            return Long.compare(l, l1);
-        }).collect(Collectors.joining(","));
     }
 
     public void replace(String name, Long startAt, Long endAt) {
